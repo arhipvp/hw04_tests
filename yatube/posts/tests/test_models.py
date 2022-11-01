@@ -1,4 +1,3 @@
-from tabnanny import verbose
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 
@@ -22,14 +21,17 @@ class PostModelTest(TestCase):
             text='Тестовый пост',
         )
 
-
     def test_models_have_correct_object_names(self):
-        """Проверяем, что у моделей корректно работает __str__."""
+        """У моделей корректно работает __str__."""
         self.assertAlmostEqual(self.group.title, 'Тестовая группа')
         self.assertAlmostEqual(self.group.slug, 'Тестовый слаг')
         self.assertAlmostEqual(self.group.description, 'Тестовое описание')
-        
+
     def test_models_have_correct_verbose_name_and_helptext(self):
-        """Проверяем, что у моделей корректно работает verbose_name и helptext"""
-        self.assertAlmostEqual(self.post._meta.get_field('author').verbose_name, 'Author')
-        self.assertAlmostEqual(self.post._meta.get_field('author').help_text, 'Автор')
+        """У моделей корректно работает verbose_name и helptext"""
+        self.assertAlmostEqual(
+            self.post._meta.get_field('author').verbose_name, 'Author'
+        )
+        self.assertAlmostEqual(
+            self.post._meta.get_field('author').help_text, 'Автор'
+        )
