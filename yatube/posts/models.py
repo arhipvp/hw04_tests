@@ -1,4 +1,3 @@
-from tabnanny import verbose
 from django.contrib.auth import get_user_model
 from django.db import models
 
@@ -56,4 +55,3 @@ class Post(models.Model):
 
     def __str__(self) -> str:
         return self.text[:15]
-

@@ -1,7 +1,7 @@
 from http import HTTPStatus
-from urllib import response
+
 from django.contrib.auth import get_user_model
-from django.test import TestCase, Client
+from django.test import Client, TestCase
 
 from ..models import Group, Post
 
@@ -14,8 +14,9 @@ class StaticURLTests(TestCase):
 
     def test_homepage(self):
         """Отправляем запрос через client, созданный в setUp()"""
-        response = self.guest_client.get('/')  
+        response = self.guest_client.get('/')
         self.assertEqual(response.status_code, 200)
+
 
 class UrlAndTemplateTests(TestCase):
     @classmethod
@@ -23,17 +24,17 @@ class UrlAndTemplateTests(TestCase):
         super().setUpClass()
         User.objects.create_user(username='TestUser')
         Group.objects.create(
-            title = 'Тестовый заголовок',
-            description = 'Тестовый текст',
-            slug = 'test-slug',
+            title='Тестовый заголовок',
+            description='Тестовый текст',
+            slug='test-slug',
         )
         Post.objects.create(
-            id = 100,
-            text = 'Тестовый текст поста',
-            author = User.objects.get(username='TestUser'),
-            group = Group.objects.get(slug='test-slug'),
+            id=100,
+            text='Тестовый текст поста',
+            author=User.objects.get(username='TestUser'),
+            group=Group.objects.get(slug='test-slug'),
         )
-    
+
     def setUp(self):
         self.guest_client = Client()
         self.user = User.objects.create_user(username='AuthUser')
@@ -55,16 +56,19 @@ class UrlAndTemplateTests(TestCase):
                 response = self.guest_client.get(address)
                 self.assertAlmostEqual(response.status_code, HTTPStatus.OK)
                 self.assertTemplateUsed(response, template)
-    
+
     def test_redirect_from_privat(self):
-        "Проверяем редирект при редактировании чужих постов (пользователь авторизован)"
+        """"
+        Проверяем редирект при редактировании
+            чужих постов (пользователь авторизован)
+        """
         Redirect_url = {
             '/posts/100/edit/': '/posts/100/'
         }
         for adress, readress in Redirect_url.items():
             response = self.authorized_client.get(adress)
             self.assertRedirects(response, readress)
-            
+
     def test_edit_own_post(self):
         "Проверяем доступность своих страниц"
         Post_autrhpr_url = (
