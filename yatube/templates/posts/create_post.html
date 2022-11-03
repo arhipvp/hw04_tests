@@ -15,7 +15,7 @@
 {% else %}
     {% url 'posts:post_create' %}
 {% endif %}
-    " method="post">
+    " method="post" enctype="multipart/form-data">
 {% csrf_token %}
 {% for field in form  %}
     <p>

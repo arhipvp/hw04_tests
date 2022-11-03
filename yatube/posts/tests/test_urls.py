@@ -2,56 +2,51 @@ from http import HTTPStatus
 
 from django.contrib.auth import get_user_model
 from django.test import Client, TestCase
+from django.urls import reverse
 
 from ..models import Group, Post
 
 User = get_user_model()
 
 
-class StaticURLTests(TestCase):
-    def setUp(self):
-        self.guest_client = Client()
-
-    def test_homepage(self):
-        """Отправляем запрос через client, созданный в setUp()"""
-        response = self.guest_client.get('/')
-        self.assertEqual(response.status_code, 200)
-
-
 class UrlAndTemplateTests(TestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        User.objects.create_user(username='TestUser')
-        Group.objects.create(
+        cls.testuser = User.objects.create_user(username='TestUser')
+        cls.testuser2 = User.objects.create_user(username='TestUser2')
+
+        cls.testgoup = Group.objects.create(
             title='Тестовый заголовок',
             description='Тестовый текст',
             slug='test-slug',
         )
-        Post.objects.create(
-            id=100,
+        cls.test_post = Post.objects.create(
             text='Тестовый текст поста',
-            author=User.objects.get(username='TestUser'),
-            group=Group.objects.get(slug='test-slug'),
+            author=cls.testuser,
+            group=cls.testgoup,
         )
+        cls.TEMPLATES_FOR_URL = {
+            'posts/index.html': '/',
+            'posts/group_list.html': '/group/test-slug/',
+            'posts/profile.html': reverse(
+                'posts:profile', kwargs={'username': cls.testuser.username}
+            ),
+            'posts/post_detail.html': reverse(
+                'posts:post_detail', kwargs={'post_id': cls.test_post.pk}
+            ),
+        }
 
     def setUp(self):
-        self.guest_client = Client()
-        self.user = User.objects.create_user(username='AuthUser')
         self.authorized_client = Client()
-        self.authorized_client.force_login(self.user)
-        self.author_user = Client()
-        self.author_user.force_login(User.objects.get(username='TestUser'))
+        self.authorized_client.force_login(self.testuser)
+        self.authorized_client2 = Client()
+        self.authorized_client2.force_login(self.testuser2)
+        self.guest_client = Client()
 
     def test_HTTPStatus_and_Template_URL_public(self):
         """Проверяем доступность и соответствие шаблонов к URL """
-        Templates_url_names = {
-            'posts/index.html': '/',
-            'posts/group_list.html': '/group/test-slug/',
-            'posts/profile.html': '/profile/TestUser/',
-            'posts/post_detail.html': '/posts/100/',
-        }
-        for template, address in Templates_url_names.items():
+        for template, address in self.TEMPLATES_FOR_URL.items():
             with self.subTest(address=address):
                 response = self.guest_client.get(address)
                 self.assertAlmostEqual(response.status_code, HTTPStatus.OK)
@@ -63,17 +58,38 @@ class UrlAndTemplateTests(TestCase):
             чужих постов (пользователь авторизован)
         """
         Redirect_url = {
-            '/posts/100/edit/': '/posts/100/'
+            reverse(
+                'posts:post_edit', kwargs={'post_id': self.test_post.pk}
+            ): reverse(
+                'posts:post_detail', kwargs={'post_id': self.test_post.pk}
+            )
         }
-        for adress, readress in Redirect_url.items():
-            response = self.authorized_client.get(adress)
+        for address, readress in Redirect_url.items():
+            response = self.authorized_client2.get(address)
             self.assertRedirects(response, readress)
 
     def test_edit_own_post(self):
         "Проверяем доступность своих страниц"
-        Post_autrhpr_url = (
-            '/posts/100/edit/',
-        )
-        for adress in Post_autrhpr_url:
-            response = self.author_user.get(adress)
-            self.assertAlmostEqual(response.status_code, HTTPStatus.OK)
+        CHECH_OWN_URL = {
+            reverse(
+                'posts:post_edit', kwargs={'post_id': self.test_post.pk}
+            )
+        }
+        for address in CHECH_OWN_URL:
+            with self.subTest(address=address):
+                response = self.authorized_client.get(address)
+                self.assertEqual(response.status_code, HTTPStatus.OK)
+
+    def test_redirect_editpost_guest(self):
+        """"
+        Проверяем редирект при редактировании
+            чужих постов (пользователь неавторизован)
+        """
+        Redirect_url = {
+            reverse(
+                'posts:post_edit', kwargs={'post_id': self.test_post.pk}
+            ): reverse('users:login')
+        }
+        for adress, readress in Redirect_url.items():
+            response = self.guest_client.get(adress)
+            self.assertIn(readress, response['location'])
