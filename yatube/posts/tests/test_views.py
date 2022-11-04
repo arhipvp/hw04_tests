@@ -8,19 +8,25 @@ User = get_user_model()
 
 
 class ViewTests(TestCase):
+
+    COUNT_POST_IN_PAGE = 10
+    COUNT_NEXT_POST = 5
+
     def generate_test_posts(count: int, author: str):
         postlist = []
+        author_post = User.objects.get(username=author)
+        group_post = Group.objects.order_by('?').first()
         for i in range(count):
             if i % 2 == 0:
                 post = Post(
                     text=(f'Тестовый текст №{i}'),
-                    group=Group.objects.order_by('?').first(),
-                    author=User.objects.get(username=author),
+                    group=group_post,
+                    author=author_post
                 )
             else:
                 post = Post(
                     text=(f'Тестовый текст №{i}'),
-                    author=User.objects.get(username=author),
+                    author=author_post,
                 )
             postlist.append(post)
         Post.objects.bulk_create(postlist)
@@ -33,7 +39,7 @@ class ViewTests(TestCase):
         cls.group1 = Group.objects.create(
             title='Тестовый заголовок',
             description='Тестовый текст',
-            slug='test-slug',
+            slug='test-slug-1',
         )
         cls.group2 = Group.objects.create(
             title='Тестовый заголовок 2',
@@ -41,8 +47,16 @@ class ViewTests(TestCase):
             slug='test-slug-2',
         )
 
-        cls.generate_test_posts(200, cls.testuser.username)
-        cls.test_post_user_last = Post.objects.order_by('-pub_date').first()
+        cls.generate_test_posts(
+            cls.COUNT_POST_IN_PAGE + cls.COUNT_NEXT_POST, cls.testuser.username
+        )
+
+        cls.post_with_group = Post.objects.create(
+            text='тестовый пост c указанием группы 1',
+            group=cls.group1,
+            author=cls.testuser,
+        )
+        cls.test_post_user_last = Post.objects.first()
 
         cls.TEMPLATES_FOR_VIEWS_AUTH = {
             reverse('posts:index'): 'posts/index.html',
@@ -78,13 +92,14 @@ class ViewTests(TestCase):
                 }
             ),
         }
-
-    def setUp(self):
-        self.guest_client = Client()
-        self.authorized_client = Client()
-        self.authorized_client.force_login(
+        cls.guest_client = Client()
+        cls.authorized_client = Client()
+        cls.authorized_client.force_login(
             User.objects.get(username='TestUser')
         )
+
+    def setUp(self):
+        pass
 
     def test_templates_view_auth(self):
         """(авторизован)Во view-функциях используются правильные шаблоны."""
@@ -102,51 +117,53 @@ class ViewTests(TestCase):
 
     def test_post_create_index(self):
         """Если при создании поста указать группу, то появляется на главной"""
-        post_with_group = Post.objects.create(
-            text='тестовый пост для test_post_create_index',
-            group=Group.objects.first(),
-            author=self.testuser,
-        )
+
         response = self.authorized_client.get(reverse('posts:index'))
-        self.assertContains(response, post_with_group.text)
+        self.assertContains(response, self.post_with_group.text)
 
     def test_post_create_group(self):
         """Если при создании поста указать группу,
         то этот пост появляется на странице группы"""
-        post_with_group = Post.objects.create(
-            text='тестовый пост для test_post_create_group',
-            group=Group.objects.first(),
-            author=self.testuser,
-        )
         response = self.authorized_client.get(
             reverse(
-                'posts:group_list', kwargs={'slug': post_with_group.group.slug}
+                'posts:group_list',
+                kwargs={'slug': self.post_with_group.group.slug}
             )
         )
-        self.assertContains(response, post_with_group.text)
+        self.assertContains(response, self.post_with_group.text)
 
     def test_post_create_profile(self):
         """Если при создании поста указать группу,
         то этот пост появляется в профайле"""
-        post_with_group = Post.objects.create(
-            text='тестовый пост для test_post_create_profile',
-            group=Group.objects.first(),
-            author=self.testuser,
-        )
         response = self.authorized_client.get(
             reverse(
                 'posts:profile', kwargs={'username': self.testuser.username}
             )
         )
-        self.assertContains(response, post_with_group.text)
+        self.assertContains(response, self.post_with_group.text)
 
     def test_post_create_no_other_group(self):
         """Пост не попал в группу, для которой не был предназначен."""
         response = self.authorized_client.get(
-            reverse('posts:group_list', kwargs={'slug': 'test-slug-2'})
+            reverse('posts:group_list', kwargs={'slug': self.group2.slug})
         )
-        self.assertNotContains(response, Post.objects.get(id=100).text)
+        self.assertNotContains(response, self.post_with_group)
 
-    def test_paginator(self):
+    def test_paginator_first_page(self):
         response = self.guest_client.get(reverse('posts:index'))
-        self.assertEqual(len(response.context['page_obj']), 10)
+        self.assertEqual(
+            len(response.context['page_obj']),
+            self.COUNT_POST_IN_PAGE,
+        )
+
+    def test_paginator_last_page(self):
+        url_last_page = '?page=' + str(
+            Post.objects.all().count() // self.COUNT_POST_IN_PAGE + 1
+        )
+        response = self.guest_client.get(
+            reverse('posts:index') + url_last_page
+        )
+        self.assertEqual(
+            len(response.context['page_obj']),
+            Post.objects.all().count() % self.COUNT_POST_IN_PAGE
+        )

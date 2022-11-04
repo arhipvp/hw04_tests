@@ -27,10 +27,10 @@ class PostModelTest(TestCase):
     def test_models_have_correct_object_names(self):
         """У моделей корректно работает __str__."""
         self.assertEqual(
-            self.test_group.__str__(), self.test_group_data['title']
+            str(self.test_group), self.test_group_data['title']
         )
         self.assertEqual(
-            self.test_post.__str__(),
+            str(self.test_post),
             self.test_post_data['text'][:self.POST_LEN_FOR_STR]
         )
 
