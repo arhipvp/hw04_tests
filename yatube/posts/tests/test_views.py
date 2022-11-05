@@ -12,21 +12,20 @@ class ViewTests(TestCase):
     COUNT_POST_IN_PAGE = 10
     COUNT_NEXT_POST = 5
 
-    def generate_test_posts(count: int, author: str):
+    def generate_test_posts(count: int, author: User):
         postlist = []
-        author_post = User.objects.get(username=author)
         group_post = Group.objects.order_by('?').first()
         for i in range(count):
             if i % 2 == 0:
                 post = Post(
                     text=(f'Тестовый текст №{i}'),
                     group=group_post,
-                    author=author_post
+                    author=author,
                 )
             else:
                 post = Post(
                     text=(f'Тестовый текст №{i}'),
-                    author=author_post,
+                    author=author,
                 )
             postlist.append(post)
         Post.objects.bulk_create(postlist)
@@ -48,7 +47,7 @@ class ViewTests(TestCase):
         )
 
         cls.generate_test_posts(
-            cls.COUNT_POST_IN_PAGE + cls.COUNT_NEXT_POST, cls.testuser.username
+            cls.COUNT_POST_IN_PAGE + cls.COUNT_NEXT_POST, cls.testuser
         )
 
         cls.post_with_group = Post.objects.create(
@@ -92,14 +91,11 @@ class ViewTests(TestCase):
                 }
             ),
         }
-        cls.guest_client = Client()
-        cls.authorized_client = Client()
-        cls.authorized_client.force_login(
-            User.objects.get(username='TestUser')
-        )
 
     def setUp(self):
-        pass
+        self.guest_client = Client()
+        self.authorized_client = Client()
+        self.authorized_client.force_login(self.testuser)
 
     def test_templates_view_auth(self):
         """(авторизован)Во view-функциях используются правильные шаблоны."""
@@ -153,7 +149,7 @@ class ViewTests(TestCase):
         response = self.guest_client.get(reverse('posts:index'))
         self.assertEqual(
             len(response.context['page_obj']),
-            self.COUNT_POST_IN_PAGE,
+            self.COUNT_POST_IN_PAGE
         )
 
     def test_paginator_last_page(self):
