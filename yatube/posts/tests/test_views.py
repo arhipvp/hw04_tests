@@ -10,23 +10,15 @@ User = get_user_model()
 class ViewTests(TestCase):
 
     COUNT_POST_IN_PAGE = 10
-    COUNT_NEXT_POST = 5
 
-    def generate_test_posts(count: int, author: User):
+    def generate_test_posts(count: int, author: User, group: Group):
         postlist = []
-        group_post = Group.objects.order_by('?').first()
         for i in range(count):
-            if i % 2 == 0:
-                post = Post(
-                    text=(f'Тестовый текст №{i}'),
-                    group=group_post,
-                    author=author,
-                )
-            else:
-                post = Post(
-                    text=(f'Тестовый текст №{i}'),
-                    author=author,
-                )
+            post = Post(
+                text=(f'Тестовый текст №{i}'),
+                group=group,
+                author=author,
+            )
             postlist.append(post)
         Post.objects.bulk_create(postlist)
 
@@ -46,9 +38,8 @@ class ViewTests(TestCase):
             slug='test-slug-2',
         )
 
-        cls.generate_test_posts(
-            cls.COUNT_POST_IN_PAGE + cls.COUNT_NEXT_POST, cls.testuser
-        )
+        cls.generate_test_posts(20, cls.testuser, cls.group1)
+        cls.generate_test_posts(20, cls.testuser, cls.group2)
 
         cls.post_with_group = Post.objects.create(
             text='тестовый пост c указанием группы 1',
